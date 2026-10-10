@@ -1,0 +1,268 @@
+{
+  "name": "AI Sales Monitoring & CEO Report",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                5
+              ],
+              "triggerAtHour": 17
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        -208
+      ],
+      "id": "1f219633-c67f-482d-a728-65c04c8a0af3",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "resource": "lead",
+        "operation": "getAll",
+        "returnAll": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.zohoCrm",
+      "typeVersion": 1,
+      "position": [
+        224,
+        -208
+      ],
+      "id": "79440358-be50-416a-8048-009cfdccd505",
+      "name": "Get many leads"
+    },
+    {
+      "parameters": {
+        "jsCode": "const leads = items.map(item => item.json);\n\n// Загальна кількість\nconst total_leads = leads.length;\n\n// Кількість по стадіях\nconst by_stage = {};\n\n// Кількість по менеджерах\nconst by_owner = {};\n\nlet new_leads_count = 0;\n\nfor (const lead of leads) {\n\n    // ---------- Stage ----------\n    const stage = lead.Lead_Status || \"Unknown\";\n\n    by_stage[stage] = (by_stage[stage] || 0) + 1;\n\n    if (stage === \"New\") {\n        new_leads_count++;\n    }\n\n    // ---------- Owner ----------\n    const owner = lead.Owner?.name || \"Unknown\";\n\n    by_owner[owner] = (by_owner[owner] || 0) + 1;\n}\n\nreturn [\n{\n    json: {\n        total_leads,\n        new_leads_count,\n        by_stage,\n        by_owner\n    }\n}\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        -208
+      ],
+      "id": "54cc9f36-36e0-4d3c-950d-550998aac54d",
+      "name": "Lead statistics"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Статистика CRM\n\nВсього лідів:\n{{ $('Lead statistics').item.json.total_leads }}\n\nНових лідів:\n{{ $('Lead statistics').item.json.new_leads_count }}\n\nРозподіл по стадіях:\n{{ JSON.stringify($('Lead statistics').item.json.by_stage) }}\n\nРозподіл по менеджерах:\n{{ JSON.stringify($('Lead statistics').item.json.by_owner) }}\n\n---\n\nІсторія кваліфікації:\n\n{{  JSON.stringify($json.qualification_history) }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=# ROLE\n\nТи Senior Sales Operations Analyst.\n\nТи аналізуєш:\n\n- CRM Funnel\n- роботу менеджерів\n- якість AI Qualification\n- історію успішних кваліфікацій\n\nНе вигадуй інформацію.\n\nВикористовуй лише надані дані.\n\n---\n\n# Завдання\n\n## 1. Analysis\n\nОпиши загальний стан воронки.\n\nПроаналізуй:\n\n- загальну кількість лідів\n- кількість нових\n- розподіл по стадіях\n- чи є накопичення\n\nЯкщо більше 20% лідів знаходиться на одній стадії —\nвважай це потенційним вузьким місцем.\n\n---\n\n## 2. Stage Bottleneck\n\nВкажи стадію, яка має найбільшу кількість лідів.\n\nКоротко поясни причину.\n\n---\n\n## 3. Manager Analysis\n\nПроаналізуй навантаження менеджерів.\n\nЯкщо всі ліди знаходяться у одного менеджера —\nвідзнач це як ризик.\n\n---\n\n## 4. Qualification Analysis\n\nПроаналізуй історію успішної кваліфікації.\n\nВизнач:\n\n• повторювані проблеми клієнтів\n\n• успішні патерни AI Agent\n\n• повторювані помилки\n\n• що потрібно стандартизувати\n\nНе вигадуй.\n\n---\n\n## 5. Recommendation\n\nНапиши одну головну рекомендацію.\n\nФормат:\n\nЩо потрібно зробити.\n\nЧому.\n\nЯкий буде результат.\n\n---\n\n## 6. Summary Message\n\nНапиши коротке повідомлення для CEO.\n\nМаксимум 2 речення.\n\nБез списків.\n\n---\n\n# OUTPUT FORMAT\n\nПоверни ТІЛЬКИ JSON.\n\nНе використовуй Markdown.\n\nНе змінюй назви полів.\n\nНе додавай нових полів.\n\n{\n  \"analysis\": \"\",\n  \"stage_bottleneck\": \"\",\n  \"manager_analysis\": \"\",\n  \"qualification_analysis\": \"\",\n  \"recommendation\": \"\",\n  \"summary_message\": \"\"\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1120,
+        -208
+      ],
+      "id": "8d43e44d-5eeb-4dc2-86a8-d8e1cc92297e",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"analysis\": {\n      \"type\": \"string\"\n    },\n    \"stage_bottleneck\": {\n      \"type\": \"string\"\n    },\n    \"manager_analysis\": {\n      \"type\": \"string\"\n    },\n    \"qualification_analysis\": {\n      \"type\": \"string\"\n    },\n    \"recommendation\": {\n      \"type\": \"string\"\n    },\n    \"summary_message\": {\n      \"type\": \"string\"\n    }\n  },\n  \"required\": [\n    \"analysis\",\n    \"stage_bottleneck\",\n    \"manager_analysis\",\n    \"qualification_analysis\",\n    \"recommendation\",\n    \"summary_message\"\n  ]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1264,
+        16
+      ],
+      "id": "5a66e318-f7df-46b8-a30c-6ae4fb725d7c",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1120,
+        16
+      ],
+      "id": "dfdac192-4ba0-4bf2-974a-78efbf24ea8a",
+      "name": "OpenAI Chat Model"
+    },
+    {
+      "parameters": {
+        "chatId": "REPLACE_WITH_TELEGRAM_CHAT_ID",
+        "text": "=<b>📊 AI Sales Weekly Report</b>\n\n<b>📈 Загальна картина</b>\n{{ $json.output.summary_message }}\n\n<b>📌 KPI</b>\n• Всього лідів: <b>{{ $('Lead statistics').item.json.total_leads }}</b>\n• Нових лідів: <b>{{ $('Lead statistics').item.json.new_leads_count }}</b>\n\n<b>📊 Аналіз воронки</b>\n{{ $json.output.analysis }}\n\n<b>🚧 Вузьке місце</b>\n{{ $json.output.stage_bottleneck }}\n\n<b>👤 Менеджери</b>\n{{ $json.output.manager_analysis }}\n\n<b>💡 Головна рекомендація</b>\n{{ $json.output.recommendation }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1472,
+        -208
+      ],
+      "id": "683a7f65-3619-4ecb-8e67-2c5aac8643b5",
+      "name": "Send a report message"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_SPREADSHEET_ID",
+          "mode": "list",
+          "cachedResultName": "History AI Agent Dialogs",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/REPLACE_WITH_SPREADSHEET_ID/edit"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Аркуш1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/REPLACE_WITH_SPREADSHEET_ID/edit"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        672,
+        -208
+      ],
+      "id": "6d7b5fc2-4f69-45bb-ac0d-f1baff51c4f8",
+      "name": "Get row(s) in sheet \"History AI Agent Dialogs\""
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all();\n\nconst qualification_history = rows\n  .slice(-100)\n  .map(item => ({\n    Client_Problem: item.json.Client_Problem,\n    Successful_Pattern: item.json.Successful_Pattern,\n    Dialogue_Rating: item.json.Dialogue_Rating,\n    Agent_Errors: item.json.Agent_Errors\n  }));\n\nreturn [{\n  json: {\n    qualification_history\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        -208
+      ],
+      "id": "624cacc2-9e20-4245-9e16-e7fbd1141523",
+      "name": "Code in JavaScript"
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get many leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many leads": {
+      "main": [
+        [
+          {
+            "node": "Lead statistics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead statistics": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet \"History AI Agent Dialogs\"",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Send a report message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet \"History AI Agent Dialogs\"": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "nodeGroups": [],
+  "tags": []
+}

@@ -1,0 +1,56 @@
+{
+  "name": "Create Collection",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "createCollection",
+        "collectionName": "gm_group_kb",
+        "vectors": "{\n  \"size\": 1536,\n  \"distance\": \"Cosine\"\n}",
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-qdrant.qdrant",
+      "typeVersion": 1,
+      "position": [
+        240,
+        0
+      ],
+      "id": "43c873df-6990-4c55-bc2c-0531c10eab53",
+      "name": "Create Collection"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        16,
+        0
+      ],
+      "id": "661e2a5b-9693-4c5e-bfeb-de54b38be54d",
+      "name": "When clicking ‘Execute workflow’"
+    }
+  ],
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Create Collection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "nodeGroups": [],
+  "tags": []
+}

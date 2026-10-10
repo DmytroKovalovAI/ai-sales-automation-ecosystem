@@ -1,0 +1,222 @@
+{
+  "name": "Init Tool (Outbound - Outbound)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "init-tool",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "da94618c-ef4d-47bf-8917-766b5931af94",
+      "name": "Webhook - Init Tool",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1840,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body || $json;\nconst raw = body.phone_number || '';\nconst digits = String(raw).replace(/\\D/g, '');\nlet normalized = digits;\nif (digits.startsWith('380')) normalized = '+' + digits;\nelse if (digits.startsWith('0')) normalized = '+38' + digits;\nelse if (!String(raw).startsWith('+')) normalized = '+' + digits;\nelse normalized = raw;\nreturn [{ json: { phone_number: normalized } }];"
+      },
+      "id": "be5e745c-171e-4eed-bfb2-3bc08e15a7dd",
+      "name": "Normalize Phone",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1616,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://YOUR_ZOHO_API_DOMAIN.example/REPLACE_WITH_API_ENDPOINT",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "zohoOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "phone",
+              "value": "={{ $json.phone_number }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "865375eb-75e9-4db3-85ae-eb940ef33d50",
+      "name": "Zoho: Search Lead by Phone",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1392,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.data ? $json.data.length : 0 }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              },
+              "id": "81b93d0f-d2d3-4380-ab93-76aa6fb6e367"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ceb27ca7-09e5-4afc-8886-79914084ce47",
+      "name": "Lead Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1168,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const phone = $('Normalize Phone').item.json.phone_number;\n\nconst leads = $json.data || [];\n\nconst lead = leads.sort(\n  (a, b) => new Date(b.Created_Time) - new Date(a.Created_Time)\n)[0] || {};\n\nreturn [{\n  json: {\n    customer_found: true,\n    customer_name: [lead.First_Name, lead.Last_Name].filter(Boolean).join(' ') || null,\n    phone_number: phone,\n    lead_id: lead.id || null,\n    contact_id: null,\n    company_name: lead.Company || null,\n    requested_product: lead.Requested_product || null,\n    city: lead.City || null,\n    lead_comment: lead.Description || null,\n    lead_source: lead.Lead_Source || null,\n    assigned_manager: lead.Owner?.name || null,\n    open_deals: 0,\n    business_hours: 'Пн-Пт 09:00-18:00',\n    system_time: $now\n  }\n}];"
+      },
+      "id": "ed71ebf3-ccc9-40e3-ab84-ed0e77ec8c76",
+      "name": "Build Response - Lead Found",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -944,
+        -48
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const phone = $('Normalize Phone').item.json.phone_number;\nreturn [{\n  json: {\n    customer_found: false,\n    customer_name: null,\n    phone_number: phone,\n    lead_id: null,\n    contact_id: null,\n    company_name: null,\n    requested_product: null,\n    city: null,\n    lead_comment: null,\n    lead_source: null,\n    assigned_manager: null,\n    open_deals: 0,\n    previous_summary: null,\n    business_hours: 'Пн-Пт 09:00-18:00'\n  }\n}];"
+      },
+      "id": "eb048159-71fd-46e2-abb4-dc0caba5fee9",
+      "name": "Build Response - Not Found",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -944,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "ab53b115-4ac7-4024-9c81-ba53c20c7514",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -720,
+        48
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook - Init Tool": {
+      "main": [
+        [
+          {
+            "node": "Normalize Phone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Phone": {
+      "main": [
+        [
+          {
+            "node": "Zoho: Search Lead by Phone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zoho: Search Lead by Phone": {
+      "main": [
+        [
+          {
+            "node": "Lead Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead Found?": {
+      "main": [
+        [
+          {
+            "node": "Build Response - Lead Found",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Response - Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Response - Lead Found": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Response - Not Found": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "nodeGroups": [],
+  "tags": []
+}

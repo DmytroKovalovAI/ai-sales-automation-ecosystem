@@ -1,0 +1,166 @@
+{
+  "name": "Lead Creation from Website Form & Voice Qualification",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "const data = $json.body.data;\n\nconst fields = {};\n\nfor (const item of data.submissions) {\n  fields[item.label] = item.value;\n}\n\nreturn [{\n  json: {\n    First_Name: fields[\"Ім'я\"] ?? \"Клієнт\",\n    Last_Name: fields[\"Прізвище\"] ?? \" \",\n    Phone: fields[\"Телефон\"]?.replace(/\\s+/g, \"\") ?? null,\n    Email: fields[\"Електронна пошта\"] ?? null,\n    Description: fields[\"Ваше повідомлення\"] ?? null,\n    City: fields[\"Місто\"] ?? null,\n    Lead_Source: \"Online Store\",\n    Lead_Status: \"New\",\n    Company: \"-\"\n  }\n}];"
+      },
+      "id": "4bfa9402-7748-426b-89b0-65cca40b9f85",
+      "name": "Map Form Fields",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "lead",
+        "Company": "={{ $json.Company }}",
+        "lastName": "={{ $json.First_Name }}",
+        "additionalFields": {
+          "Description": "={{ $json.Description }}",
+          "Email": "={{ $json.Email }}",
+          "Lead_Source": "={{ $json.Lead_Source }}",
+          "Lead_Status": "={{ $json.Lead_Status }}",
+          "Phone": "={{ $json.Phone }}"
+        }
+      },
+      "type": "n8n-nodes-base.zohoCrm",
+      "typeVersion": 1,
+      "position": [
+        448,
+        0
+      ],
+      "id": "022ee4a1-63c5-4c50-bc5c-44ac66330abd",
+      "name": "Create a lead"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "website-lead-form-demo",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "df6f9168-9afc-4e3a-9b49-d9803f908209",
+      "name": "Webhook from Zoho"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR_HAPP_TOOLS_API_DOMAIN.example/REPLACE_WITH_OUTBOUND_CALL_ENDPOINT",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Access-Token",
+              "value": "REPLACE_WITH_ROTATED_HAPP_TOOLS_ACCESS_TOKEN"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "phoneNumber",
+              "value": "={{ $('Map Form Fields').item.json.Phone }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "b003317b-6ee2-4089-bb04-9c4387e6391e",
+      "name": "Happ Tools: Start Outbound Call",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        896,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 30
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        672,
+        0
+      ],
+      "id": "e72878a6-b77f-4e80-95a4-06daf6c421fc",
+      "name": "Wait"
+    }
+  ],
+  "connections": {
+    "Map Form Fields": {
+      "main": [
+        [
+          {
+            "node": "Create a lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a lead": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook from Zoho": {
+      "main": [
+        [
+          {
+            "node": "Map Form Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Happ Tools: Start Outbound Call": {
+      "main": [
+        []
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Happ Tools: Start Outbound Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "nodeGroups": [],
+  "tags": []
+}

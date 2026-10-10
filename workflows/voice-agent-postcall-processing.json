@@ -1,0 +1,573 @@
+{
+  "name": "Postcall (Outbound - Google Sheets + Zoho",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Call Log",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/REPLACE_WITH_SPREADSHEET_ID/edit"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "call_id": "={{ $('Parse Native Postcall Payload').item.json.call_id }}",
+            "duration_seconds": "={{ $('Parse Native Postcall Payload').item.json.duration_seconds }}",
+            "call_success": "={{ $('Parse Native Postcall Payload').item.json.call_success }}",
+            "human_handoff": "={{ $('Parse Native Postcall Payload').item.json.human_handoff }}",
+            "handoff_reason": "={{ $json.output.handoff_reason }}",
+            "summary": "={{ $json.output.summary }}",
+            "timestamp": "={{ $now.toLocal()}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "call_id",
+              "displayName": "call_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "call_success",
+              "displayName": "call_success",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "duration_seconds",
+              "displayName": "duration_seconds",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "human_handoff",
+              "displayName": "human_handoff",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "handoff_reason",
+              "displayName": "handoff_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "summary",
+              "displayName": "summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "0f284471-7170-4cee-b541-2595d121b708",
+      "name": "Google Sheets: Log Call",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -512,
+        -336
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = { ...$json };\n\nj.summary = j.text ?? j.summary;\n\ndelete j.text;\n\nj.update_module = j.contact_id ? 'Contacts' : (j.lead_id ? 'Leads' : null);\nj.update_id = j.contact_id || j.lead_id || null;\n\nreturn [{\n  json: j\n}];"
+      },
+      "id": "a7415326-b292-4ab6-b107-a8079939e929",
+      "name": "Pick Update Target",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -512,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.update_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "fcf4abfe-8d15-4e2b-adef-e1746e11f278",
+      "name": "Has Lead/Contact?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -288,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = $json;\nconst record = {\n  previous_summary: j.summary\n};\nif (j.update_module === 'Leads') {\n  record.Lead_Status = 'Дзвінок здійснено';\n}\nreturn [{ json: { ...j, update_payload: { data: [record] } } }];"
+      },
+      "id": "45bdb40e-8cc5-4584-a2d0-ae5cf062d24e",
+      "name": "Prepare Update Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -64,
+        -224
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"status\": \"ok\" } }}",
+        "options": {}
+      },
+      "id": "85c21c31-2b92-439f-ad10-95aae700c3a2",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        608,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "postcall-data",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1984,
+        -256
+      ],
+      "id": "8980ef99-586e-4cbe-9078-9f7b915225d3",
+      "name": "Webhook"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -736,
+        -192
+      ],
+      "id": "7454ff4d-3c70-4bb6-8022-37b77d975b32",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d8327077-55d2-4939-89a9-8c45aed6c041",
+              "leftValue": "={{ $json.summary }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1536,
+        -320
+      ],
+      "id": "eb0437b5-24e9-4061-a6fd-2021d5540a08",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// Example Company — Postcall webhook parser (Happ.tools / ElevenLabs-style payload)\n// Джерело даних: transcript[].tool_calls, де \"Postcall\" — звичайний\n// tool, який агент повинен явно викликати (див. Секцію 13 промпту v3.0).\n// tool_name у логах приходить як числовий індекс (ненадійний для\n// матчингу за назвою), тому Postcall-виклик визначається за\n// СИГНАТУРОЮ параметрів (наявність ключів AI_Score/AI_Context/\n// phone_number), а не за назвою tool'а.\n// ============================================================\n\nconst b = $json.body || $json;\nconst data = b.data || b;\nconst dv = data.conversation_initiation_client_data?.dynamic_variables || {};\nconst analysis = data.analysis || {};\nconst transcript = data.transcript || [];\n\n// ---------- Утиліта: подвійний JSON.parse ----------\n// params_as_json / result_value приходять як рядок, що сам є\n// JSON-рядком з екранованим JSON усередині (double-encoded).\nfunction safeDoubleParse(raw) {\n  if (raw === undefined || raw === null) return null;\n  let step1;\n  try {\n    step1 = JSON.parse(raw);\n  } catch {\n    return null;\n  }\n  if (typeof step1 === \"object\" && step1 !== null) return step1;\n  if (typeof step1 === \"string\") {\n    try {\n      const step2 = JSON.parse(step1);\n      return typeof step2 === \"object\" && step2 !== null ? step2 : null;\n    } catch {\n      return null;\n    }\n  }\n  return null;\n}\n\n// Очікувані ключі Postcall tool — використовуються як \"відбиток\"\n// для розпізнавання потрібного tool_call серед усіх викликів за дзвінок.\nconst POSTCALL_SIGNATURE_KEYS = [\n  \"phone_number\", \"lead_id\", \"contact_id\", \"call_success\",\n  \"human_handoff\", \"handoff_reason\", \"summary\", \"AI_Context\", \"AI_Score\"\n];\n\nfunction looksLikePostcallParams(obj) {\n  if (!obj || typeof obj !== \"object\") return false;\n  const matchCount = POSTCALL_SIGNATURE_KEYS.filter(k => k in obj).length;\n  // Вважаємо це Postcall-викликом, якщо збігається щонайменше 4\n  // з 9 очікуваних ключів (з запасом на випадок часткового заповнення).\n  return matchCount >= 4;\n}\n\n// ---------- Пошук Postcall tool call у всьому транскрипті ----------\nlet postcallParams = null;\nlet postcallToolInvoked = false;\nlet postcallCallSucceeded = null; // is_error з tool_results, якщо знайдено\n\nfor (let i = 0; i < transcript.length; i++) {\n  const calls = transcript[i].tool_calls || [];\n  const results = transcript[i].tool_results || [];\n  for (let j = 0; j < calls.length; j++) {\n    const parsed = safeDoubleParse(calls[j].params_as_json);\n    if (looksLikePostcallParams(parsed)) {\n      postcallParams = parsed;\n      postcallToolInvoked = true;\n      // tool_results зазвичай на тому ж індексі в межах цього ж turn\n      const matchingResult = results[j] || results[0];\n      if (matchingResult) postcallCallSucceeded = !matchingResult.is_error;\n      break;\n    }\n  }\n  if (postcallParams) break;\n}\n\n// ---------- end_call reason (для fallback і діагностики) ----------\nlet endCallReason = null;\nfor (let i = transcript.length - 1; i >= 0; i--) {\n  const calls = transcript[i].tool_calls || [];\n  for (const tc of calls) {\n    const parsed = safeDoubleParse(tc.params_as_json);\n    if (parsed && \"reason\" in parsed && !looksLikePostcallParams(parsed)) {\n      endCallReason = parsed.reason || null;\n    }\n  }\n  if (endCallReason) break;\n}\n\n// ---------- Фінальні поля ----------\n// Пріоритет: значення, які агент реально передав у Postcall tool.\n// Fallback (лише якщо tool узагалі не викликано — сигнал, що\n// промпт ще не оновлено чи агент проігнорував інструкцію) —\n// евристики зі старої версії, плюс явний прапорець для моніторингу.\n\nconst phoneNumber = postcallParams?.phone_number ?? dv.phone_number ?? null;\nconst leadId = postcallParams?.lead_id ?? dv.lead_id ?? null;\nconst contactId = postcallParams?.contact_id ?? dv.contact_id ?? null;\n\nconst callSuccess =\n  postcallParams?.call_success ??\n  (Array.isArray(transcript) && transcript.length > 2);\n\nconst reasonTextForFallback = (endCallReason || \"\").toLowerCase();\nconst handoffFallback =\n  /(handoff|manager|callback|contact|human|менеджер|передзвон|перетелефон)/i.test(reasonTextForFallback);\n\nconst humanHandoff =\n  typeof postcallParams?.human_handoff === \"boolean\"\n    ? postcallParams.human_handoff\n    : handoffFallback;\n\nconst handoffReason =\n  postcallParams?.handoff_reason ??\n  (humanHandoff ? endCallReason : null);\n\nlet summary =\n  postcallParams?.summary ??\n  analysis.transcript_summary ??\n  null;\n\nif (\n  summary &&\n  (\n    summary.includes(\"Please provide the customer service conversation\") ||\n    summary.includes(\"The conversation transcript was not included in your prompt\") ||\n    summary.includes(\"You did not provide the customer service conversation text\")\n  )\n) {\n  summary = null;\n}\n\nconst aiScoreRaw = postcallParams?.AI_Score ?? null;\nconst aiScore = typeof aiScoreRaw === \"number\" ? aiScoreRaw : (Number.isFinite(Number(aiScoreRaw)) ? Number(aiScoreRaw) : null);\n\n// ---------- OUTPUT ----------\nreturn [{\n  json: {\n    call_id: data.conversation_id || null,\n    agent_name: data.agent_name || \"Outbound\",\n    call_type: dv.call_type || null,\n    phone_number: phoneNumber,\n    lead_id: leadId,\n    contact_id: contactId,\n    duration_seconds: data.metadata?.call_duration_secs || 0,\n    call_success: callSuccess,\n    human_handoff: humanHandoff,\n    handoff_reason: handoffReason,\n    summary: summary,\n    AI_Score: aiScore,\n    AI_Context: postcallParams?.AI_Context ?? null,\n\n    // --- Діагностика для моніторингу впровадження промпту v3.0 ---\n    // Якщо postcall_tool_invoked = false на новій версії промпту —\n    // це сигнал, що агент все ще НЕ викликає Postcall tool явно,\n    // і Секцію 13 промпту треба переглянути/посилити ще раз.\n    postcall_tool_invoked: postcallToolInvoked,\n    postcall_tool_error: postcallToolInvoked ? (postcallCallSucceeded === false) : null\n  }\n}];"
+      },
+      "id": "ec513d0a-1b16-47c5-94f2-91b2b59de2c7",
+      "name": "Parse Native Postcall Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1760,
+        -256
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -1296,
+        -224
+      ],
+      "id": "b431dd78-7326-46a2-9dd8-f06e829dc2e7",
+      "name": "OpenAI Chat Model"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"summary\": {\n      \"type\": \"string\",\n      \"description\": \"Повний переклад Summary українською мовою.\"\n    },\n    \"handoff_reason\": {\n      \"type\": \"string\",\n      \"description\": \"Короткий переклад причини передачі менеджеру українською мовою.\"\n    },\n    \"ai_score\": {\n      \"type\": \"integer\",\n      \"minimum\": 0,\n      \"maximum\": 100,\n      \"description\": \"Фінальний AI Score, розрахований за методологією BANT.\"\n    },\n    \"bant\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"budget\": {\n          \"type\": \"integer\",\n          \"minimum\": 0,\n          \"maximum\": 25,\n          \"description\": \"Оцінка Budget.\"\n        },\n        \"authority\": {\n          \"type\": \"integer\",\n          \"minimum\": 0,\n          \"maximum\": 25,\n          \"description\": \"Оцінка Authority.\"\n        },\n        \"need\": {\n          \"type\": \"integer\",\n          \"minimum\": 0,\n          \"maximum\": 30,\n          \"description\": \"Оцінка Need.\"\n        },\n        \"timeline\": {\n          \"type\": \"integer\",\n          \"minimum\": 0,\n          \"maximum\": 20,\n          \"description\": \"Оцінка Timeline.\"\n        }\n      },\n      \"required\": [\n        \"budget\",\n        \"authority\",\n        \"need\",\n        \"timeline\"\n      ]\n    }\n  },\n  \"required\": [\n    \"summary\",\n    \"handoff_reason\",\n    \"ai_score\",\n    \"bant\"\n  ]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -1168,
+        -224
+      ],
+      "id": "83dbadf6-723d-4ce4-8bc9-a21d221fd568",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "jsCode": "const output = $json.output;\n\nreturn [\n  {\n    json: {\n      ...$json,\n\n      summary: output.summary,\n      handoff_reason: output.handoff_reason,\n\n      AI_Score: output.ai_score,\n\n      BANT_Budget: output.bant.budget,\n      BANT_Authority: output.bant.authority,\n      BANT_Need: output.bant.need,\n      BANT_Timeline: output.bant.timeline\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -960,
+        -448
+      ],
+      "id": "273aec0a-0d36-47e8-a57c-f5516655f8b4",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "resource": "lead",
+        "operation": "update",
+        "leadId": "={{ $json.data[0].id }}",
+        "updateFields": {
+          "customFields": {
+            "customFields": [
+              {
+                "fieldId": "previous_summary",
+                "value": "={{ $('Prepare Update Payload').item.json.output.summary }}\n\nБюджет: {{ $('Prepare Update Payload').item.json.output.bant.budget }}\nПрийняття рішення: {{ $('Prepare Update Payload').item.json.output.bant.authority }}\nПотреба: {{ $('Prepare Update Payload').item.json.output.bant.need }}\nЧас: {{ $('Prepare Update Payload').item.json.output.bant.timeline }}"
+              },
+              {
+                "fieldId": "AI_score",
+                "value": "={{ $('Prepare Update Payload').item.json.output.ai_score }}"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.zohoCrm",
+      "typeVersion": 1,
+      "position": [
+        384,
+        -224
+      ],
+      "id": "e5ebbfa9-bfe0-496e-8678-f73dd122b752",
+      "name": "Update a lead"
+    },
+    {
+      "parameters": {
+        "url": "https://YOUR_ZOHO_API_DOMAIN.example/REPLACE_WITH_API_ENDPOINT",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "zohoOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "phone",
+              "value": "={{ $json.phone_number }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "dfaf9cf6-7786-42be-a41b-e8efdb188318",
+      "name": "Zoho: Search Contact by Phone",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        160,
+        -224
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Summary:\n{{ $json.summary }}\n\nHandoff reason:\n{{ $json.handoff_reason }}",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "=Ти професійний перекладач та AI-аналітик відділу продажів.\n\nТобі буде передано:\n\n1. Summary англійською мовою.\n2. Handoff Reason англійською мовою.\n\n### Твої завдання\n\n1. Переклади Summary українською мовою.\n2. Переклади Handoff Reason українською мовою.\n3. На основі Summary оціни якість ліда за методологією BANT.\n4. Розрахуй AI Score від 0 до 100.\n\n### Методика оцінювання\n\nBudget (0–25)\n• 25 — бюджет підтверджений або клієнт готовий купувати.\n• 18 — відомий спосіб фінансування (лізинг, кредит, Trade-In).\n• 10 — бюджет або фінансування ще не визначені.\n• 0 — покупка не планується.\n\nAuthority (0–25)\n• 25 — рішення приймає сам клієнт.\n• 15 — рішення погоджується з іншими особами.\n• 5 — хто приймає рішення невідомо.\n• 0 — клієнт не впливає на рішення.\n\nNeed (0–30)\n• 30 — потреба чітко сформульована.\n• 20 — потреба є, але вимоги неповні.\n• 10 — лише загальний інтерес.\n• 0 — потреба відсутня.\n\nTimeline (0–20)\n• 20 — покупка найближчим часом.\n• 15 — протягом 1–3 місяців.\n• 10 — протягом року.\n• 5 — строки невідомі.\n• 0 — покупка не планується.\n\nAI Score = Budget + Authority + Need + Timeline.\n\n### Правила\n\n- Не вигадуй інформацію.\n- Якщо інформація відсутня — використовуй нижчий бал.\n- Не змінюй зміст Summary.\n- Не додавай нової інформації.\n- Якщо handoff_reason відсутня або порожня, поверни порожній рядок.\n- Використовуй лише інформацію, що міститься у Summary.\n\nStructured Output буде сформований автоматично.\nНе додавай Markdown.\nНе пояснюй свої рішення."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        -1312,
+        -448
+      ],
+      "id": "12f3f0a2-7f20-4ad8-b109-54861c7a10a8",
+      "name": "AI BANT Scoring & Translation"
+    }
+  ],
+  "connections": {
+    "Pick Update Target": {
+      "main": [
+        [
+          {
+            "node": "Has Lead/Contact?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Lead/Contact?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Update Payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Update Payload": {
+      "main": [
+        [
+          {
+            "node": "Zoho: Search Contact by Phone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parse Native Postcall Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets: Log Call",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Pick Update Target",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "AI BANT Scoring & Translation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Parse Native Postcall Payload": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI BANT Scoring & Translation",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI BANT Scoring & Translation",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Update a lead": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zoho: Search Contact by Phone": {
+      "main": [
+        [
+          {
+            "node": "Update a lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI BANT Scoring & Translation": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "nodeGroups": [],
+  "tags": []
+}
